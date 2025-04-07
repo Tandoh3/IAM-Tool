@@ -12,7 +12,7 @@ st.sidebar.title("🔍**Navigation**")
 st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "📌 Select Section:",
-    ["🏠 Main Page", "📂 Database Groups", "🔑 Database Privilege Users", "🗂 Database Profiles"]
+    ["🏠 Main Page","🔁 Duplicate User Provisioning", "📂 Database Groups", "🔑 Database Privilege Users", "🗂 Database Profiles"]
 )
 st.sidebar.markdown("---")
 st.sidebar.info("**Use this tool to manage access securely!**")
@@ -218,8 +218,6 @@ elif page == "📂 Database Groups":
             file_name=" Consolidated_Users_of_Profiles.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
 
 
 
