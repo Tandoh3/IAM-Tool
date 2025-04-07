@@ -110,6 +110,78 @@ if page == "🏠 Main Page":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+                
+elif page == "🔁 Duplicate User Provisioning":
+    st.title("🔁 Duplicate User Provisioning")
+    uploaded_file = st.file_uploader("Upload System Users", type=["xls", "xlsx"])
+    
+    if not uploaded_file:
+        st.info("Please upload an Excel file to proceed.")
+        st.stop()
+        
+    sys_users = pd.read_excel(uploaded_file)
+    username_column = st.selectbox("Select the column containing usernames", sys_users.columns)
+    
+    if not username_column:
+        st.stop()
+
+    # 1) Find usernames with >1 occurrence
+    vc = sys_users[username_column].value_counts()
+    dup_users = vc[vc > 1].index.tolist()
+    dup_df = sys_users[sys_users[username_column].isin(dup_users)]
+    
+    st.subheader("🔍 Raw Rows for Users with Multiple Occurrences")
+    st.dataframe(dup_df)
+    
+    # 2) Show a summary count
+    summary = (
+        dup_df[username_column]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "Username", username_column: "Occurrences"})
+    )
+    st.subheader("📊 Occurrence Summary")
+    st.dataframe(summary)
+    
+    # 3) Consolidate on demand
+    if st.button("🛠️ Consolidate Duplicates"):
+        # Build an aggregation dict dynamically:
+        agg_dict = {}
+        for col in sys_users.columns:
+            if col == username_column:
+                continue
+            # if text, join unique values; else take first
+            if sys_users[col].dtype == "O":
+                agg_dict[col] = lambda x: ", ".join(x.dropna().astype(str).unique())
+            else:
+                agg_dict[col] = "first"
+
+        consolidated = (
+            dup_df
+            .groupby(username_column, as_index=False)
+            .agg(agg_dict)
+        )
+
+        st.subheader("✅ Consolidated Users")
+        st.dataframe(consolidated)
+
+        # Download button
+        towrite = io.BytesIO()
+        with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
+            consolidated.to_excel(writer, sheet_name="Consolidated", index=False)
+        towrite.seek(0)
+
+        st.download_button(
+            label="📥 Download Consolidated Report",
+            data=towrite,
+            file_name="consolidated_users.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+
+
+
+        
 # Database Groups Page
 elif page == "📂 Database Groups":
     st.title("📂 Database Groups Management")
