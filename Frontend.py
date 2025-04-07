@@ -110,87 +110,54 @@ if page == "🏠 Main Page":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-
 elif page == "🔁 Duplicate User Provisioning":
     st.title("🔁 Duplicate User Provisioning")
-
-    # 1) allow multiple file upload
-    uploaded_files = st.file_uploader(
-        "Upload one Excel file per application", 
-        type=["xls", "xlsx"], 
-        accept_multiple_files=True,
-        key="sys_users_files"
-    )
-
-    if not uploaded_files:
-        st.info("Please upload at least one Excel file to proceed.")
+    uploaded_file = st.file_uploader("Upload System Users", type=["xls", "xlsx"])
+    
+    if not uploaded_file:
+        st.info("Please upload an Excel file to proceed.")
         st.stop()
-
-    # 2) pick the username column (assumes same schema across files)
-    #    we read the first file just to get its columns
-    sample_df = pd.read_excel(uploaded_files[0])
-    username_column = st.selectbox(
-        "Select the column containing usernames",
-        sample_df.columns
-    )
+        
+    sys_users = pd.read_excel(uploaded_file)
+    username_column = st.selectbox("Select the column containing usernames", sys_users.columns)
+    
     if not username_column:
         st.stop()
 
-    all_dup_dfs = []
-    st.markdown("---")
-
-    # 3) process each uploaded file
-    for file in uploaded_files:
-        df = pd.read_excel(file)
-        app_name = file.name.replace(".xlsx","").replace(".xls","")
-
-        st.subheader(f"📄 Preview: {app_name}")
-        st.dataframe(df.head(5))
-
-        # find users with >1 provisioning in this app
-        vc = df[username_column].value_counts()
-        dup_users = vc[vc > 1].index.tolist()
-        dup_df = df[df[username_column].isin(dup_users)].copy()
-        dup_df["Application"] = app_name
-
-        if not dup_df.empty:
-            st.markdown(f"**🔍 Duplicates in {app_name}:**")
-            st.dataframe(dup_df)
-            all_dup_dfs.append(dup_df)
-        else:
-            st.markdown(f"✅ No duplicates found in **{app_name}**.")
-
-        st.markdown("---")
-
-    # 4) combine across all apps
-    if all_dup_dfs:
-        combined = pd.concat(all_dup_dfs, ignore_index=True)
-
-        st.subheader("📊 Combined Occurrence Summary")
-        summary = (
-            combined.groupby(["Application", username_column])
-                    .size()
-                    .reset_index(name="Occurrences")
-        )
-        st.dataframe(summary)
-
-        # 5) download combined duplicates
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
-            combined.to_excel(writer,
-                              sheet_name="All_Multiple_Provisions",
-                              index=False)
-        buf.seek(0)
-
+    # 1) Identify users with >1 provisioning
+    vc = sys_users[username_column].value_counts()
+    dup_users = vc[vc > 1].index.tolist()
+    dup_df = sys_users[sys_users[username_column].isin(dup_users)]
+    
+    # 2) Show raw rows
+    st.subheader("🔍 Raw Rows for Users with Multiple Provisions")
+    st.dataframe(dup_df)
+    
+    # 3) Show summary
+    summary = (
+        dup_df[username_column]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"index": "Username", username_column: "Occurrences"})
+    )
+    st.subheader("📊 Occurrence Summary")
+    st.dataframe(summary)
+    
+    # 4) Download the raw duplicate rows
+    if not dup_df.empty:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            dup_df.to_excel(writer, sheet_name="Multiple_Provisions", index=False)
+        buffer.seek(0)
+        
         st.download_button(
-            label="📥 Download All Duplicates",
-            data=buf,
-            file_name="all_users_multiple_provisions.xlsx",
+            label="📥 Download Users with Multiple Provisions",
+            data=buffer,
+            file_name="users_multiple_provisions.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        st.success("No users with multiple provisions found across any application.")
-
+        st.info("No users with multiple provisions to download.")
 
 
         
